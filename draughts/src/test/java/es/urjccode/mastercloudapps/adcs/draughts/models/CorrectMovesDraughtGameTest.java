@@ -352,8 +352,8 @@ public class CorrectMovesDraughtGameTest extends GameTest {
             "b       ",
             "        ",
             "  n n n ",
-            "        ",
-            "B       ");
+            " B      ",
+            "        ");
         setExpectedGame(Color.BLACK,
             "        ",
             "    n   ",
