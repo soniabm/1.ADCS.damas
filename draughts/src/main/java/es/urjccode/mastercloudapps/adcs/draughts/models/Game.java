@@ -2,6 +2,7 @@ package es.urjccode.mastercloudapps.adcs.draughts.models;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class Game {
 
@@ -33,23 +34,65 @@ public class Game {
 	}
 
 	public Error move(Coordinate... coordinates) {
-		Error error = null;
-		List<Coordinate> removedCoordinates = new ArrayList<Coordinate>();
+		Error error;
+		boolean possibleEatingIgnored = false;
+		List<Coordinate> removedCoordinates = new ArrayList<>();
 		int pair = 0;
 		do {
 			error = this.isCorrectPairMove(pair, coordinates);
-			if (error == null) {
+			if(error == null){
+                List<Coordinate> possibleCoordinates = this.isPossibleEating();
+                if(!possibleCoordinates.isEmpty()){
+                    possibleEatingIgnored = !possibleCoordinates.contains(coordinates[pair]) || this.getBetweenDiagonalPiece(pair, coordinates) == null;
+                }
+            }
+			if (error == null && !possibleEatingIgnored) {
 				this.pairMove(removedCoordinates, pair, coordinates);
 				pair++;
 			}
-		} while (pair < coordinates.length - 1 && error == null);
+		} while (pair < coordinates.length - 1 && error == null && !possibleEatingIgnored);
 		error = this.isCorrectGlobalMove(error, removedCoordinates, coordinates);
-		if (error == null)
-			this.turn.change();
+		if(possibleEatingIgnored){
+		    this.removeRandomPiece();
+        }
+		if (error == null){
+            this.turn.change();
+        }
 		else
 			this.unMovesUntilPair(removedCoordinates, pair, coordinates);
 		return error;
 	}
+
+    private List<Coordinate> isPossibleEating(){
+	    List<Coordinate> coordinates = new ArrayList<>();
+        for (Coordinate coordinate : this.getCoordinatesWithActualColor())
+            if (this.isPossibleEating(coordinate))
+                coordinates.add(coordinate);
+        return coordinates;
+    }
+
+    private boolean isPossibleEating(Coordinate coordinate){
+        for (int i = 1; i <= 2; i++)
+            for (Coordinate target : coordinate.getDiagonalCoordinates(i))
+                if (this.isCorrectPairMove(0, coordinate, target) == null){
+                    List<Coordinate> betweenCoordinates = coordinate.getBetweenDiagonalCoordinates(target);
+                    if (!betweenCoordinates.isEmpty()){
+                        for (Coordinate betweenCoordinate : betweenCoordinates) {
+                            if (this.getPiece(betweenCoordinate) != null)
+                                return true;
+                        }
+                    }
+                }
+        return false;
+    }
+
+    private void removeRandomPiece(){
+        List<Coordinate> coordinates = this.isPossibleEating();
+
+        Random random = new Random();
+        int forRemoving = random.nextInt(coordinates.size());
+        this.board.remove(coordinates.get(forRemoving));
+    }
 
 	private Error isCorrectPairMove(int pair, Coordinate... coordinates) {
 		assert coordinates[pair] != null;
@@ -60,7 +103,7 @@ public class Game {
 			return Error.OPPOSITE_PIECE;
 		if (!this.board.isEmpty(coordinates[pair + 1]))
 			return Error.NOT_EMPTY_TARGET;
-		List<Piece> betweenDiagonalPieces = 
+		List<Piece> betweenDiagonalPieces =
 			this.board.getBetweenDiagonalPieces(coordinates[pair], coordinates[pair + 1]);
 		return this.board.getPiece(coordinates[pair]).isCorrectMovement(betweenDiagonalPieces, pair, coordinates);
 	}
@@ -114,7 +157,7 @@ public class Game {
 	}
 
 	private List<Coordinate> getCoordinatesWithActualColor() {
-		List<Coordinate> coordinates = new ArrayList<Coordinate>();
+		List<Coordinate> coordinates = new ArrayList<>();
 		for (int i = 0; i < this.getDimension(); i++) {
 			for (int j = 0; j < this.getDimension(); j++) {
 				Coordinate coordinate = new Coordinate(i, j);
@@ -191,11 +234,8 @@ public class Game {
 		} else if (!board.equals(other.board))
 			return false;
 		if (turn == null) {
-			if (other.turn != null)
-				return false;
-		} else if (!turn.equals(other.turn))
-			return false;
-		return true;
-	}
+            return other.turn == null;
+		} else return turn.equals(other.turn);
+    }
 
 }
