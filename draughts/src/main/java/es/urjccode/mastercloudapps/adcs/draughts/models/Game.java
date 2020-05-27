@@ -35,27 +35,21 @@ public class Game {
 
 	public Error move(Coordinate... coordinates) {
 		Error error;
-		boolean possibleEatingIgnored = false;
 		List<Coordinate> removedCoordinates = new ArrayList<>();
+		boolean ignoredEatingMovement;
 		int pair = 0;
 		do {
 			error = this.isCorrectPairMove(pair, coordinates);
-			if(error == null){
-                List<Coordinate> possibleCoordinates = this.isPossibleEating();
-                if(!possibleCoordinates.isEmpty()){
-                    possibleEatingIgnored = !possibleCoordinates.contains(coordinates[pair]) || this.getBetweenDiagonalPiece(pair, coordinates) == null;
-                }
-            }
-			if (error == null && !possibleEatingIgnored) {
+			ignoredEatingMovement = isEatingMovementIgnored(pair, coordinates);
+			if (error == null && !ignoredEatingMovement) {
 				this.pairMove(removedCoordinates, pair, coordinates);
 				pair++;
 			}
-		} while (pair < coordinates.length - 1 && error == null && !possibleEatingIgnored);
+		} while (pair < coordinates.length - 1 && error == null && !ignoredEatingMovement);
 		error = this.isCorrectGlobalMove(error, removedCoordinates, coordinates);
-		if(possibleEatingIgnored){
-		    this.removeRandomPiece();
-        }
 		if (error == null){
+		    if(ignoredEatingMovement)
+                this.removeRandomPiece();
             this.turn.change();
         }
 		else
@@ -63,31 +57,32 @@ public class Game {
 		return error;
 	}
 
-    private List<Coordinate> isPossibleEating(){
+    private boolean isEatingMovementIgnored(int pair, Coordinate... coordinates){
+        List<Coordinate> possibleCoordinatesToMakeEating = this.possibleCoordinatesToMakeEating();
+        return !possibleCoordinatesToMakeEating.isEmpty() && (!possibleCoordinatesToMakeEating.contains(coordinates[pair]) || this.getBetweenDiagonalPiece(pair, coordinates) == null);
+    }
+
+    private List<Coordinate> possibleCoordinatesToMakeEating(){
 	    List<Coordinate> coordinates = new ArrayList<>();
         for (Coordinate coordinate : this.getCoordinatesWithActualColor())
-            if (this.isPossibleEating(coordinate))
+            if (this.isEatingPossible(coordinate))
                 coordinates.add(coordinate);
         return coordinates;
     }
 
-    private boolean isPossibleEating(Coordinate coordinate){
-        for (int i = 1; i <= 2; i++)
-            for (Coordinate target : coordinate.getDiagonalCoordinates(i))
-                if (this.isCorrectPairMove(0, coordinate, target) == null){
-                    List<Coordinate> betweenCoordinates = coordinate.getBetweenDiagonalCoordinates(target);
-                    if (!betweenCoordinates.isEmpty()){
-                        for (Coordinate betweenCoordinate : betweenCoordinates) {
-                            if (this.getPiece(betweenCoordinate) != null)
-                                return true;
-                        }
-                    }
+    private boolean isEatingPossible(Coordinate coordinate){
+        for (Coordinate target : coordinate.getDiagonalCoordinates(2))
+            if (this.isCorrectPairMove(0, coordinate, target) == null){
+                List<Coordinate> betweenCoordinates = coordinate.getBetweenDiagonalCoordinates(target);
+                if (!betweenCoordinates.isEmpty()){
+                    return this.getPiece(betweenCoordinates.get(0)) != null;
                 }
+        }
         return false;
     }
 
     private void removeRandomPiece(){
-        List<Coordinate> coordinates = this.isPossibleEating();
+        List<Coordinate> coordinates = this.possibleCoordinatesToMakeEating();
 
         Random random = new Random();
         int forRemoving = random.nextInt(coordinates.size());
